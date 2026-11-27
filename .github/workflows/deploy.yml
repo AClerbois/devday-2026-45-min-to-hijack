@@ -1,0 +1,139 @@
+name: deploy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      location:
+        description: Région Azure (carte 03)
+        required: false
+
+permissions:
+  id-token: write   # OIDC vers Azure : aucun secret de connexion stocké
+  contents: read
+
+# Jamais deux déploiements en même temps, même si on pousse deux cartes d'affilée
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AZ_LOCATION: ${{ inputs.location || vars.LOCATION || 'swedencentral' }}
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  # ------------------------------------------------------------ à chaque PR et chaque push
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Bicep lint et compilation
+        run: |
+          az bicep install
+          az bicep lint --file infra/main.bicep
+          az bicep build --file infra/main.bicep --stdout > /dev/null
+          az bicep build-params --file infra/main.bicepparam --stdout > /dev/null
+
+      # Tant que src/ n'est pas ajouté (voir setup.md), les étapes .NET sont sautées
+      - uses: actions/setup-dotnet@v5
+        if: hashFiles('src/**/*.csproj') != ''
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # carte 08 : NuGet Audit signale les packages vulnérables (en erreur une fois la carte jouée, via le .csproj)
+      - name: Build et tests
+        if: hashFiles('src/**/*.csproj') != ''
+        run: |
+          dotnet restore src
+          dotnet build src -c Release --no-restore
+          dotnet list src package --vulnerable --include-transitive
+
+  # ------------------------------------------------------------ PR : ce qui va changer, sans rien changer
+  what-if:
+    if: github.event_name == 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: What-if
+        run: |
+          az deployment group what-if \
+            -g rg-devday-chaos-$AZ_LOCATION \
+            -f infra/main.bicep -p infra/main.bicepparam
+
+  # ------------------------------------------------------------ main : infra puis code
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: demo
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Infra (Bicep)
+        id: infra
+        run: |
+          RG=rg-devday-chaos-$AZ_LOCATION
+          az group create -n $RG -l $AZ_LOCATION -o none
+          out=$(az deployment group create -g $RG \
+                  -n "deploy-${GITHUB_RUN_NUMBER}" \
+                  -f infra/main.bicep -p infra/main.bicepparam \
+                  --query properties.outputs -o json)
+          echo "app=$(echo "$out" | jq -r .appName.value)" >> "$GITHUB_OUTPUT"
+          echo "url=$(echo "$out" | jq -r .appUrl.value)"  >> "$GITHUB_OUTPUT"
+
+      # Étapes « code » : sautées tant que src/ n'existe pas
+      - uses: actions/setup-dotnet@v5
+        if: hashFiles('src/**/*.csproj') != ''
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Publication
+        if: hashFiles('src/**/*.csproj') != ''
+        run: dotnet publish src -c Release -o out
+
+      # Les identifiants de publication sont désactivés : le déploiement passe par l'identité OIDC
+      - uses: azure/webapps-deploy@v3
+        if: hashFiles('src/**/*.csproj') != ''
+        with:
+          app-name: ${{ steps.infra.outputs.app }}
+          package: out
+
+      # La page, l'état ET une vraie question : un run vert prouve que l'app parle au modèle.
+      # 429 accepté : le modèle est joignable, seulement saturé (c'est le sujet de la carte 04).
+      - name: Test de fumée
+        if: hashFiles('src/**/*.csproj') != ''
+        env:
+          URL: ${{ steps.infra.outputs.url }}
+        run: |
+          for i in $(seq 1 12); do
+            page=$(curl -s -o /dev/null -w "%{http_code}" "$URL/")
+            status=$(curl -s -o status.json -w "%{http_code}" "$URL/api/status")
+            chat=$(curl -s -o chat.json -w "%{http_code}" -X POST "$URL/api/chat" \
+                     -H "Content-Type: application/json" -d '{"question":"Où a lieu le DevDay ?"}')
+            if [ "$page" = "200" ] && [ "$status" = "200" ] && { [ "$chat" = "200" ] || [ "$chat" = "429" ]; }; then
+              echo "App en ligne → $URL"
+              echo "État : $(cat status.json)"
+              [ "$chat" = "429" ] && echo "::warning::Le modèle répond 429 : quota saturé." || echo "Réponse : $(jq -r .answer chat.json)"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::L'app ne répond pas correctement (page $page, état $status, question $chat)"
+          cat chat.json 2>/dev/null
+          exit 1
