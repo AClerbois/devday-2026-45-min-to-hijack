@@ -7,7 +7,9 @@ Revue complète du repo du 27 novembre : déroulé, docs, Bicep, pipeline, scrip
 ## Bloquants : à régler avant le dry-run
 
 - [x] **1. Le quota laisse passer à peine une question par minute, pour toute la salle**
-  - **Fait** : `MaxOutputTokens = 300`, `modelCapacity = 10`, `fallbackModelCapacity = 50`, `charge.ps1` à 10 en parallèle. **Reste** : demander 10 000 TPM pour mini et 50 000 pour nano (étendue eur), et confirmer les valeurs au dry-run (contrôle 0.10 et carte 04).
+  - **Fait** : `MaxOutputTokens = 300`, `modelCapacity = 10`, `fallbackModelCapacity = 50`, `charge.ps1` à 10 en parallèle.
+  - **Quota (dry-run du 27 novembre)** : rien à demander. La souscription a **50 M TPM** en DataZoneStandard (étendue EUR, pool partagé Suède + France) pour `gpt-4.1-mini` comme pour `gpt-4.1-nano`. `modelCapacity = 10` est donc un choix, pas une limite : on peut monter à 20-30 sans demande.
+  - **Reste** : trancher `modelCapacity` au contrôle 0.10 (10 000 TPM ≈ 10 questions par minute pour la salle). Si on monte, vérifier à la carte 04 que `charge.ps1` déclenche encore des 429.
   - **Problème** : le build déploie `gpt-4.1-mini` avec `modelCapacity = 1`, soit 1 000 tokens par minute. Azure compte chaque requête **en incluant `MaxOutputTokens`** (1 000 dans `src/Program.cs`). Dès que la salle scanne le QR code (2'00), l'app est saturée, et toutes les preuves de cartes échouent, pas seulement la 04. Après la carte 04, le repli `gpt-4.1-nano` à 10 000 tokens par minute ne passe qu'une dizaine de questions par minute : « que des 200 » avec `charge.ps1` (60 requêtes) est impossible.
   - **Correction** : `MaxOutputTokens` à 300 partout ; capacité du build entre 10 et 20 ; repli plus large ; la panne de la carte 04 est déclenchée par `charge.ps1`. Valeurs exactes au dry-run.
   - **Conséquence** : ajuster la **demande de quota** (mini et nano, étendue eur) aux valeurs retenues.
@@ -35,9 +37,10 @@ Revue complète du repo du 27 novembre : déroulé, docs, Bicep, pipeline, scrip
 
 ## Importants
 
-- [ ] **5. Le crédit Visual Studio Enterprise (environ 150 $/mois)**
-  - **Problème** : deux régions en P0v3, plus les répétitions, peuvent épuiser le crédit. Crédit épuisé = **souscription désactivée jusqu'au mois suivant**.
-  - **À faire** : vérifier le solde ; supprimer la France après chaque répétition ; surveiller le crédit jusqu'au 3 décembre. Vérifier aussi que ce type d'abonnement accepte les budgets de la carte 05.
+- [ ] **5. Le crédit de la souscription**
+  - **Constat (dry-run du 27 novembre)** : la souscription est une **Microsoft Azure Sponsorship** (« ACL - Microsoft Azure Sponsorship »), pas une Visual Studio Enterprise. L'hypothèse des 150 $/mois ne tient plus.
+  - **Problème** : deux régions en P0v3, plus les répétitions, peuvent épuiser le crédit. Sur un Sponsorship aussi, crédit épuisé = souscription désactivée.
+  - **À faire** : vérifier le solde et la date de fin du Sponsorship ; supprimer la France après chaque répétition ; surveiller le crédit jusqu'au 3 décembre. Vérifier aussi que ce type d'abonnement accepte les budgets de la carte 05.
   - **Qui** : Christophe (accès au compte)
 
 - [ ] **6. PIM pour la carte 07**
@@ -62,6 +65,19 @@ Revue complète du repo du 27 novembre : déroulé, docs, Bicep, pipeline, scrip
   - **Correction** : vérifier le repli avec sa propre capacité.
   - **Fichiers** : `coulisses/scripts/check-quota.ps1`
 
+- [x] **9 bis. `check-quota.ps1` disait « MANQUE » partout**
+  - **Fait** : Azure nomme le quota `OpenAI.DataZoneStandard.gpt4.1-mini` (sans tiret après `gpt`) ; le script accepte maintenant les deux orthographes.
+
+- [ ] **9 ter. Le tag `etat-build` n'existe pas**
+  - **Problème** : le dry-run 1, le retour entre deux cartes et la remise à zéro partent de `etat-build`. `git describe --tags` ne trouve aucun tag.
+  - **À faire** : poser le tag une fois le piège de la carte 07 en place (point 9 quater), et le pousser.
+  - **Qui** : Christophe
+
+- [ ] **9 quater. Le piège de la carte 07 n'est pas posé, et la carte ne peut pas marcher en l'état**
+  - **Problème** : `devOwnerPrincipalId = ''` dans `main.bicepparam` : personne n'est Owner sur le groupe de ressources (contrôle 0.8 rouge). Et surtout, Adrien et Christophe sont **Owner de la souscription** : même après la parade, Adrien reste Owner par héritage, donc la vérification « Adrien n'est plus Owner » échouera.
+  - **À faire** : décider qui joue « Adrien » dans la carte. Par exemple, un compte de démo dédié, sans droit sur la souscription, dont l'object id va dans `devOwnerPrincipalId`.
+  - **Qui** : Christophe et Adrien
+
 - [ ] **10. Le verrou de la carte 08 peut casser le build en direct**
   - **Problème** : `NuGetAuditMode all` avec NU1901 à NU1904 en erreurs bloque sur **n'importe quel** package vulnérable, y compris les packages en préversion.
   - **À faire** : poser le verrou une fois en local dès maintenant, pendant la mise à jour des packages, et vérifier que seul `Newtonsoft.Json` le fait échouer.
@@ -82,6 +98,8 @@ Revue complète du repo du 27 novembre : déroulé, docs, Bicep, pipeline, scrip
 - [ ] **16.** Une requête sans `X-User` n'est jamais limitée : n'importe qui contourne la limite de la carte 04. Plutôt un point à faire relever par Mario qu'un bug.
 - [ ] **17.** Carte 05 : l'option « modèle plus petit » (`gpt-4.1-nano`) entre en conflit avec le repli si la carte 04 est passée (deux déploiements du même nom).
 - [ ] **18.** Un changement d'app setting **redémarre** l'app quelques secondes : nuancer « l'app relit ses réglages à chaque requête » dans la carte 08 (`run.md`, `dry-run.md`).
+- [ ] **18 bis.** Le poste de Christophe n'a pas le SDK .NET : `dotnet list … --vulnerable` (contrôle 0.8, carte 08) et la vérification locale du verrou ne passent pas. L'installer avant la carte 08, ou faire ces contrôles sur le poste d'Adrien.
+- [ ] **18 ter.** Le contrôle 0.6 vise moins de 4 min, mais les deux derniers runs ont pris 4 min 7 s et 5 min 1 s. Le point 19 ci-dessous en gagne un peu ; chercher l'étape la plus lente dans le run.
 - [ ] **19.** Le pipeline redéploie tout à chaque push, même pour la doc : ajouter un `paths-ignore` sur `coulisses/**` et `**.md` (`.github/workflows/deploy.yml`).
 
 ---

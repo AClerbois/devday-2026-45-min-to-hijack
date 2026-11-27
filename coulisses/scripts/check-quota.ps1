@@ -48,7 +48,9 @@ $missing = @()
 foreach ($region in $Regions) {
     $usages = az cognitiveservices usage list -l $region -o json | ConvertFrom-Json
     foreach ($model in $need.Keys) {
-        $u = $usages | Where-Object { $_.name.value -eq "OpenAI.$sku.$model" }
+        # Azure retire parfois le tiret après « gpt » dans le nom du quota : gpt-4.1-mini → OpenAI.DataZoneStandard.gpt4.1-mini
+        $names = @("OpenAI.$sku.$model", "OpenAI.$sku.$($model -replace '^gpt-', 'gpt')")
+        $u = $usages | Where-Object { $_.name.value -in $names } | Select-Object -First 1
         $limit = if ($u) { [int]$u.limit } else { 0 }
         $used  = if ($u) { [int]$u.currentValue } else { 0 }
         $ok = $limit -ge $need[$model]
