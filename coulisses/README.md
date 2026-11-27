@@ -70,5 +70,5 @@ On **ajoute** la ligne de la carte dans `main.bicepparam`, puis commit et push. 
 1. Créer le repo **privé** (sinon le secret scanning de GitHub bloque la clé piège de la carte 01).
 2. `./coulisses/scripts/check-quota.ps1 -Open` : demander le quota manquant **tôt**, l'approbation n'est pas immédiate.
 3. `./coulisses/scripts/setup-oidc.ps1 <owner/repo> <subscription-id>`, puis créer l'environnement GitHub `demo`.
-4. Premier push sur `main` : le pipeline crée `rg-devday-chaos-swedencentral` et déploie.
+4. Premier push sur `main` : le pipeline crée `rg-devday-2026-devsecops-talk-swedencentral` et déploie.
 5. Mesurer la durée d'un déploiement complet : elle conditionne le chrono de chaque carte.

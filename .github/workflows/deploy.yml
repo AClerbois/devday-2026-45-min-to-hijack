@@ -67,7 +67,7 @@ jobs:
       - name: What-if
         run: |
           az deployment group what-if \
-            -g rg-devday-chaos-$AZ_LOCATION \
+            -g rg-devday-2026-devsecops-talk-$AZ_LOCATION \
             -f infra/main.bicep -p infra/main.bicepparam
 
   # ------------------------------------------------------------ main : infra puis code
@@ -88,7 +88,7 @@ jobs:
       - name: Infra (Bicep)
         id: infra
         run: |
-          RG=rg-devday-chaos-$AZ_LOCATION
+          RG=rg-devday-2026-devsecops-talk-$AZ_LOCATION
           az group create -n $RG -l $AZ_LOCATION -o none
           out=$(az deployment group create -g $RG \
                   -n "deploy-${GITHUB_RUN_NUMBER}" \

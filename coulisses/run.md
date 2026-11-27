@@ -20,7 +20,7 @@ Garder sous la main ces variables, utilisées par toutes les cartes :
 ```powershell
 $LOCATION = gh variable get LOCATION 2>$null
 if (-not $LOCATION) { $LOCATION = 'swedencentral' }   # même repli que le pipeline
-$RG  = "rg-devday-chaos-$LOCATION"
+$RG  = "rg-devday-2026-devsecops-talk-$LOCATION"
 $APP = az webapp list -g $RG --query "[0].name" -o tsv
 $FDY = az cognitiveservices account list -g $RG --query "[0].name" -o tsv
 if ($APP) { $URL = "https://$(az webapp show -g $RG -n $APP --query defaultHostName -o tsv)" } else { Write-Warning "Aucune Web App dans $RG : le dernier déploiement est-il allé au bout ?" }
@@ -318,8 +318,8 @@ Tout remettre dans l'état du build :
 
 ```powershell
 # Supprimer les ressources des deux régions
-az group delete -n rg-devday-chaos-swedencentral --yes
-az group delete -n rg-devday-chaos-francecentral --yes
+az group delete -n rg-devday-2026-devsecops-talk-swedencentral --yes
+az group delete -n rg-devday-2026-devsecops-talk-francecentral --yes
 
 # Libérer les noms Foundry (réservés 48 h après suppression)
 az cognitiveservices account list-deleted -o table

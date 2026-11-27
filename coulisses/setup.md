@@ -151,7 +151,7 @@ gh run watch
 
 Le pipeline :
 1. **verify** : lint et compilation du Bicep, build .NET, liste des packages vulnérables ;
-2. **deploy** : crée `rg-devday-chaos-swedencentral`, déploie l'infra, puis le code ;
+2. **deploy** : crée `rg-devday-2026-devsecops-talk-swedencentral`, déploie l'infra, puis le code ;
 3. **test de fumée** : la page, `/api/status` et une vraie question ; affiche `App en ligne → https://app-devday-chaos-swedencentral.azurewebsites.net` et la réponse du modèle. Un 429 passe avec un avertissement (modèle joignable mais saturé).
 
 **Noter la durée totale du run.** Elle conditionne tout le chrono : avec des cartes de 8 minutes, la parade dispose de 5 minutes, donc **un déploiement doit prendre moins de 4 minutes**. Le premier déploiement, lui, se fait la veille de la session.
@@ -199,8 +199,8 @@ La session part d'une app volontairement mal configurée. Chaque carte corrige u
 **Clé API (carte 01)** :
 
 ```powershell
-$FDY = az cognitiveservices account list -g rg-devday-chaos-swedencentral --query "[0].name" -o tsv
-az cognitiveservices account keys list -g rg-devday-chaos-swedencentral -n $FDY --query key1 -o tsv
+$FDY = az cognitiveservices account list -g rg-devday-2026-devsecops-talk-swedencentral --query "[0].name" -o tsv
+az cognitiveservices account keys list -g rg-devday-2026-devsecops-talk-swedencentral -n $FDY --query key1 -o tsv
 ```
 
 Coller la clé dans `src/appsettings.json`, champ `Ai:Key`, et commiter : c'est la clé « fuitée » de la carte 01.
