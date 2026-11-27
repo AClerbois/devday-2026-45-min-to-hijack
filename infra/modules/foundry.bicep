@@ -42,6 +42,8 @@ resource foundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   }
 }
 
+// Azure refuse deux opérations en même temps sur un même compte Foundry (« RequestConflict ») :
+// ses enfants se créent l'un après l'autre. Projet → politique (06) → modèle → repli (04) → diagnostic.
 resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   parent: foundry
   name: 'devday-chaos'
@@ -61,6 +63,9 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
 resource strictPolicy 'Microsoft.CognitiveServices/accounts/raiPolicies@2025-06-01' = if (enablePromptShields) {
   parent: foundry
   name: strictPolicyName
+  dependsOn: [
+    project
+  ]
   properties: {
     basePolicyName: 'Microsoft.DefaultV2'
     mode: 'Blocking'
@@ -85,6 +90,7 @@ resource primary 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' =
   parent: foundry
   name: modelName
   dependsOn: [
+    project
     strictPolicy
   ]
   sku: {
@@ -102,7 +108,6 @@ resource primary 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' =
   }
 }
 
-// Les déploiements d'un même compte se font l'un après l'autre, sinon Azure renvoie un conflit
 resource fallback 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = if (hasFallback) {
   parent: foundry
   name: hasFallback ? fallbackModelName : 'none'
@@ -128,6 +133,10 @@ resource fallback 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' 
 resource diag 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   scope: foundry
   name: 'to-log-analytics'
+  dependsOn: [
+    primary
+    fallback
+  ]
   properties: {
     workspaceId: logAnalyticsId
     logs: [
