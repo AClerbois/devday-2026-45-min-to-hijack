@@ -74,8 +74,10 @@ resource site 'Microsoft.Web/sites@2024-04-01' = {
     virtualNetworkSubnetId: integrated ? appSubnetId : null
     vnetRouteAllEnabled: integrated
     siteConfig: {
-      linuxFxVersion: 'DOTNETCORE|10.0'
+      linuxFxVersion: 'DOTNETCORE|11.0'
       alwaysOn: true
+      // Blazor (rendu interactif côté serveur) : le chat passe par une connexion WebSocket
+      webSocketsEnabled: true
       http20Enabled: true
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'

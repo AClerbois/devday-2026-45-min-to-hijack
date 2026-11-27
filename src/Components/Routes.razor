@@ -1,0 +1,12 @@
+<CascadingValue Name="VisitorId" Value="VisitorId">
+    <Router AppAssembly="typeof(App).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" />
+        </Found>
+    </Router>
+</CascadingValue>
+
+@code {
+    [Parameter]
+    public string? VisitorId { get; set; }
+}

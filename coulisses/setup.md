@@ -17,7 +17,7 @@ push sur main ──► GitHub Actions ──► 1. Bicep : Web App + Foundry (+
 |---|---|---|
 | Azure CLI | Déploiement, vérifications, parades | `az version` |
 | GitHub CLI | Repo, secrets, lancement du pipeline | `gh auth status` |
-| SDK .NET 10 | Build local et carte 09 | `dotnet --version` |
+| SDK .NET 11 | Build local et carte 09 (les composants Blazor AI exigent .NET 11) | `dotnet --version` |
 | PowerShell 7.3+ | Toutes les commandes et les scripts de `coulisses/scripts/` | `$PSVersionTable.PSVersion` |
 | Une souscription Azure **de démo** | Hors ORES, sans aucune donnée client | — |
 | Owner sur cette souscription | Créer les ressources et les rôles | — |
@@ -52,23 +52,24 @@ devday-chaos/
 ├─ .github/workflows/deploy.yml
 └─ src/                        l'app .NET
    ├─ Options.cs               les réglages du contrat ci-dessous
-   ├─ ChatClients.cs           Azure ou local, clé ou identité, modèle de secours
-   ├─ Program.cs               API, limite par utilisateur, état affiché
+   ├─ ChatClients.cs           Azure ou local, clé ou identité, modèle de secours (SDK OpenAI, API v1 de Foundry)
+   ├─ Program.cs               les endpoints /api et la page
+   ├─ Assistant.cs             le chemin commun page + API : limite par spectateur, prompt, erreurs, historique
    ├─ Prompts.cs               prompt par défaut / durci, filtre de sortie
    ├─ Export.cs                la fonction qui dépend du package vulnérable
    ├─ appsettings.json         Ai:Auth = key, la clé « fuitée » (étape 6)
-   └─ wwwroot/index.html       la page et son bandeau d'état
+   ├─ Components/              la page Blazor : chat (composants Blazor AI, expérimentaux) et bandeau d'état
+   └─ wwwroot/app.css          le style de la page
 ```
 
-> **Le code n'a pas encore été compilé.** Avant la première répétition, Adrien remonte les packages à leur dernière version (sauf `Newtonsoft.Json`, le piège de la carte 08) et compile :
+> **La version Blazor n'a pas encore été compilée.** Le chat repose sur les composants Blazor AI (`Microsoft.AspNetCore.Components.AI`, 0.1.0-preview, **expérimental**), qui exigent .NET 11. Avant la première répétition, avec le SDK .NET 11 :
 >
 > ```powershell
-> 'Microsoft.Extensions.AI','Azure.Identity','Azure.Monitor.OpenTelemetry.AspNetCore' | % { dotnet add src package $_ }
-> 'Microsoft.Extensions.AI.OpenAI','Azure.AI.OpenAI' | % { dotnet add src package $_ --prerelease }   # sans --prerelease si une version stable existe
 > dotnet build src
+> dotnet run --project src      # puis ouvrir la page : le chat s'affiche, une question obtient une réponse
 > ```
 >
-> Deux points à vérifier selon les versions retenues : le nom `AsIChatClient()` (anciennement `AsChatClient()`), et le fait qu'une erreur 429 ou 400 du modèle remonte bien en `ClientResultException`.
+> Points à vérifier : que `ChatPage` et `UIAgent` gardent la forme du sample Microsoft (`danroth27/AgenticUI`) dans la version retenue ; qu'une erreur 429 ou 400 du modèle remonte bien en `ClientResultException` ; que l'authentification par clé **et** par identité passe sur l'API v1 de Foundry (`…/openai/v1/`).
 
 ### Le contrat de l'app (`src/`)
 
@@ -87,7 +88,7 @@ devday-chaos/
 
 Et une API : `POST /api/chat` avec `{"question": "..."}`, utilisée par les preuves de `run.md` et par `coulisses/scripts/charge.ps1`. Plus `GET /api/status` (l'état affiché par le bandeau) et `GET /api/export`.
 
-La limite par spectateur repose sur l'en-tête `X-User`, envoyé par la page (un identifiant par navigateur) ; une requête sans `X-User` n'est pas limitée. La région affichée se lit dans le nom de la Web App (`app-devday-chaos-<région>`).
+La limite par spectateur repose, dans la page, sur un cookie `devday-uid` (un identifiant par navigateur) et, pour l'API, sur l'en-tête `X-User` ; une requête d'API sans `X-User` n'est pas limitée. La région affichée se lit dans le nom de la Web App (`app-devday-chaos-<région>`).
 
 Seule la carte 08 touche vraiment au code en direct : la montée de version du package dans le `.csproj`, une ligne.
 

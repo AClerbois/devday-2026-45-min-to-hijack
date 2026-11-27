@@ -1,0 +1,38 @@
+@implements IDisposable
+@inject IOptionsMonitor<AiOptions> Ai
+@inject IOptionsMonitor<FeatureOptions> Features
+@inject IConfiguration Config
+
+@* Bandeau d'état : la configuration active. Les protections n'apparaissent qu'une fois activées. *@
+<div class="status" aria-label="Configuration active">
+    @foreach (var (label, value, on) in Chips())
+    {
+        <span class="chip @(on ? "on" : null)">@label : @value</span>
+    }
+</div>
+
+@code {
+    System.Threading.Timer? _timer;
+
+    IEnumerable<(string Label, string? Value, bool On)> Chips()
+    {
+        var s = AppStatus.Read(Ai.CurrentValue, Features.CurrentValue, Config);
+        yield return ("Région", s.Region, false);
+        yield return ("Modèle", s.Model, false);
+        yield return ("Auth", s.Auth, false);
+        if (s.Mode == "local") yield return ("Mode", "local", true);
+        if (s.FallbackModel is not null) yield return ("Secours", s.FallbackModel, true);
+        if (s.RateLimit) yield return ("Limite", "5 / min", true);
+        if (s.PromptGuard) yield return ("Prompt", "durci", true);
+        if (!s.Export) yield return ("Export", "désactivé", true);
+    }
+
+    // Rafraîchi toutes les 15 s, seulement une fois la page interactive
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+            _timer = new System.Threading.Timer(_ => InvokeAsync(StateHasChanged), null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

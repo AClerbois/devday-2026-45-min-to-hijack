@@ -22,7 +22,7 @@ concurrency:
 
 env:
   AZ_LOCATION: ${{ inputs.location || vars.LOCATION || 'swedencentral' }}
-  DOTNET_VERSION: '10.0.x'
+  DOTNET_VERSION: '11.0.x'   # composants Blazor AI : .NET 11 minimum
 
 jobs:
   # ------------------------------------------------------------ à chaque PR et chaque push
@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -79,7 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}

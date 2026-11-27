@@ -123,7 +123,7 @@ Pour revenir à `etat-build` entre deux cartes sans tout remettre à zéro : ann
 | Après | `./coulisses/scripts/charge.ps1 $URL` | **Que des 200** |
 | Après | Deux téléphones en même temps, l'un qui insiste | Seul celui qui insiste est limité : la limite est par spectateur, pas par IP |
 
-Point à surveiller : l'app limite par en-tête `X-User` (la page en envoie un par navigateur) ; une requête **sans** `X-User` n'est jamais limitée par l'app. `charge.ps1` doit donc envoyer un `X-User` **différent à chaque requête** (ou aucun) : s'il envoie toujours le même, l'app le prend pour un seul spectateur et renvoie elle-même des 429 après la parade.
+Point à surveiller : l'API limite par en-tête `X-User` (la page, elle, limite par cookie, un par navigateur) ; une requête d'API **sans** `X-User` n'est jamais limitée par l'app. `charge.ps1` doit donc envoyer un `X-User` **différent à chaque requête** (ou aucun) : s'il envoie toujours le même, l'app le prend pour un seul spectateur et renvoie elle-même des 429 après la parade.
 
 ### Carte 05 · Budget ÷ 2
 

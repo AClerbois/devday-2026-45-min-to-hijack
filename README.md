@@ -149,7 +149,7 @@ En bas de la page, un **bandeau d'état** affiche la région, le modèle et le m
 
 ```
                     GitHub (repo privé)
-                    ├─ src/        app .NET 10
+                    ├─ src/        app .NET 11, Blazor
                     ├─ infra/      Bicep
                     └─ .github/    GitHub Actions
                           │  push sur main
@@ -162,7 +162,7 @@ En bas de la page, un **bandeau d'état** affiche la région, le modèle et le m
    Azure (une région UE, une seconde pour la carte 03)
    ┌──────────────────────────────────────────────────────────┐
    │  Web App (App Service Linux)  ──identité managée──►  Azure AI Foundry │
-   │  .NET 10, code déployé                               projet + modèles  │
+   │  .NET 11 Blazor, code déployé                        projet + modèles  │
    │                                                      DataZone UE       │
    │  ── carte 02 : VNet, private endpoint, DNS privé ──                    │
    │  Log Analytics + Application Insights                                  │
@@ -175,7 +175,7 @@ En bas de la page, un **bandeau d'état** affiche la région, le modèle et le m
 |---|---|
 | Hébergement | Web App, App Service Linux, déploiement du code (pas de conteneur) |
 | IA | Azure AI Foundry, ressource `AIServices`, modèles en `DataZoneStandard` (données dans l'UE) |
-| App | ASP.NET Core .NET 10, `Microsoft.Extensions.AI` (`IChatClient`), Azure OpenAI |
+| App | ASP.NET Core .NET 11, Blazor (rendu serveur interactif) et composants Blazor AI (expérimentaux) pour le chat, `Microsoft.Extensions.AI` (`IChatClient`), SDK OpenAI sur l'API v1 de Foundry |
 | IaC | Bicep, un seul fichier à modifier : `infra/main.bicepparam` |
 | CI/CD | GitHub Actions, connexion OIDC, PR → what-if, main → déploiement |
 | On-prem | Foundry Local, même code, même config |
@@ -185,12 +185,14 @@ En bas de la page, un **bandeau d'état** affiche la région, le modèle et le m
 ```
 src/
 ├─ Options.cs          les réglages lus à chaque requête (contrat de coulisses/setup.md)
-├─ Program.cs          endpoints, limite par spectateur (04), état affiché
+├─ Program.cs          les endpoints /api et la page
+├─ Assistant.cs        chemin commun page + API : limite par spectateur (04), prompt (06), historique (08)
 ├─ ChatClients.cs      Azure ou local (09), clé ou identité (01), repli (04)
 ├─ Prompts.cs          prompt naïf / cadré, filtre de sortie (06)
 ├─ Export.cs           la fonction qui dépend du package vulnérable (08)
 ├─ appsettings.json    la clé piège (01)
-└─ wwwroot/index.html  la page et son bandeau d'état
+├─ Components/         la page Blazor : chat (composants Blazor AI) et bandeau d'état
+└─ wwwroot/app.css     le style de la page
 infra/
 ├─ main.bicep          les paramètres, valeurs par défaut = état du build
 ├─ main.bicepparam     l'état du build, sans aucune parade : chaque carte y ajoute une ligne

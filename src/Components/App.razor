@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base href="/" />
+    <ResourcePreloader />
+    @* Le style de base du chat vient du package Blazor AI ; app.css l'ajuste *@
+    <link rel="stylesheet" href="@Assets["_content/Microsoft.AspNetCore.Components.AI/ai-chat.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <ImportMap />
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+<body>
+    @* L'identifiant du spectateur (cookie) passe au circuit interactif en paramètre *@
+    <Routes @rendermode="InteractiveServer" VisitorId="@VisitorId" />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+</html>
+
+@code {
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+
+    string? VisitorId => HttpContext?.Items[Visitor.ItemKey] as string;
+}

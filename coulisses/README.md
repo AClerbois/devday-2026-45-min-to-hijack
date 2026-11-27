@@ -1,6 +1,6 @@
 # Infra de démo · DevDay 2026 · « 60 minutes chrono »
 
-Une **Web App** (App Service Linux, .NET 10, déploiement du code) et une ressource **Azure AI Foundry** (kind `AIServices`, un projet, un ou deux modèles), déployées par **GitHub Actions** en **Bicep**.
+Une **Web App** (App Service Linux, .NET 11, déploiement du code) et une ressource **Azure AI Foundry** (kind `AIServices`, un projet, un ou deux modèles), déployées par **GitHub Actions** en **Bicep**.
 
 ```
 infra/

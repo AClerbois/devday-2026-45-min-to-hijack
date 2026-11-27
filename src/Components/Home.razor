@@ -1,0 +1,44 @@
+@page "/"
+@implements IDisposable
+@inject DevDayAssistant Assistant
+
+<PageTitle>Demandez au DevDay</PageTitle>
+
+<main class="page">
+    <header>
+        <h1>Demandez au DevDay</h1>
+        <p class="sub">L'assistant de la session « 60 minutes chrono ». Il est peut-être en train de tomber en panne.</p>
+    </header>
+
+    @* Le chat agentique des composants Blazor AI : messages, streaming, saisie *@
+    <div class="chat">
+        <ChatPage Agent="_agent" Placeholder="Où a lieu le DevDay ? Quelle session ne pas rater ?" />
+    </div>
+
+    <div class="actions">
+        <a class="btn" href="/api/export" target="_blank" rel="noopener">Exporter l'historique</a>
+    </div>
+
+    <StatusBar />
+</main>
+
+@code {
+    [CascadingParameter(Name = "VisitorId")]
+    public string? VisitorId { get; set; }
+
+    UIAgent _agent = default!;
+    IChatClient _chatClient = default!;
+
+    protected override void OnInitialized()
+    {
+        // Le chat ne connaît qu'un IChatClient ; l'assistant, derrière, porte les parades des cartes
+        _chatClient = new AssistantChatClient(Assistant, VisitorId);
+        _agent = new UIAgent(_chatClient);
+    }
+
+    public void Dispose()
+    {
+        _agent.Dispose();
+        _chatClient.Dispose();
+    }
+}

@@ -1,0 +1,21 @@
+/* La page autour du chat. Le chat lui-même : ai-chat.css, livré par le package Blazor AI. */
+:root { --ink:#141416; --muted:#5a5a60; --accent:#d9481c; --line:#dadadf; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #fff; }
+
+.page { max-width: 720px; margin: 0 auto; padding: 32px 20px 48px; display: flex; flex-direction: column; gap: 16px; min-height: 100vh; }
+h1 { font-size: 32px; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0; }
+
+/* Le chat prend la hauteur disponible ; les messages défilent à l'intérieur */
+.chat { flex: 1; min-height: 420px; height: 62vh; border: 2px solid var(--line); border-radius: 12px; overflow: hidden; }
+.chat > .sc-ai-chat-page { height: 100%; }
+
+.actions { display: flex; gap: 12px; flex-wrap: wrap; }
+a.btn { min-height: 44px; padding: 0 20px; border-radius: 10px; border: 2px solid var(--line); color: var(--ink);
+        font-weight: 600; display: inline-flex; align-items: center; text-decoration: none; }
+a.btn:hover { border-color: var(--accent); }
+
+.status { padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); }
+.chip.on { border-color: var(--ink); color: var(--ink); font-weight: 600; }

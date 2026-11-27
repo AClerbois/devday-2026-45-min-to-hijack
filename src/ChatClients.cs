@@ -1,6 +1,6 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
-using Azure.AI.OpenAI;
+using System.Runtime.CompilerServices;
 using Azure.Identity;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
@@ -44,7 +44,7 @@ sealed class ChatClientProvider(IOptionsMonitor<AiOptions> options)
             return BuildOne(o, o.Model!, retryOn429: true);
 
         // Avec un repli, le principal ne réessaie pas : sur un 429, on bascule tout de suite au lieu
-        // d'attendre les tentatives du client Azure (qui respectent un délai pouvant dépasser 30 s).
+        // d'attendre les nouvelles tentatives du client (qui respectent un délai pouvant dépasser 30 s).
         return new FallbackChatClient(
             BuildOne(o, o.Model!, retryOn429: false),
             BuildOne(o, o.FallbackModel!, retryOn429: true));
@@ -52,33 +52,36 @@ sealed class ChatClientProvider(IOptionsMonitor<AiOptions> options)
 
     static IChatClient BuildOne(AiOptions o, string model, bool retryOn429)
     {
-        var endpoint = new Uri(o.Endpoint!);
-
         // Foundry Local : endpoint compatible OpenAI, sans authentification
         if (o.IsLocal)
-            return new OpenAIClient(new ApiKeyCredential("local"), new OpenAIClientOptions { Endpoint = endpoint })
+            return new OpenAIClient(new ApiKeyCredential("local"), new OpenAIClientOptions { Endpoint = new Uri(o.Endpoint!) })
                 .GetChatClient(model)
                 .AsIChatClient();
 
-        var clientOptions = new AzureOpenAIClientOptions
+        // Foundry : l'API v1, compatible OpenAI (https://<ressource>.openai.azure.com/openai/v1/), avec le SDK OpenAI.
+        // Pas d'Azure.AI.OpenAI : ses versions récentes cassent à l'exécution avec le SDK OpenAI tiré par Microsoft.Extensions.AI.
+        var clientOptions = new OpenAIClientOptions
         {
+            Endpoint = new Uri(o.Endpoint!.TrimEnd('/') + "/openai/v1/"),
             RetryPolicy = new ClientRetryPolicy(maxRetries: retryOn429 ? 2 : 0),
             NetworkTimeout = TimeSpan.FromSeconds(30),
         };
 
-        AzureOpenAIClient azure;
+        OpenAIClient client;
         if (o.UsesIdentity)
         {
-            azure = new AzureOpenAIClient(endpoint, new DefaultAzureCredential(), clientOptions);
+            // Carte 01 : identité managée, jeton Entra ID, aucune clé
+            var token = new BearerTokenPolicy(new DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default");
+            client = new OpenAIClient(token, clientOptions);
         }
         else
         {
             if (string.IsNullOrWhiteSpace(o.Key))
                 throw new InvalidOperationException("Ai:Auth vaut key mais Ai:Key est vide.");
-            azure = new AzureOpenAIClient(endpoint, new ApiKeyCredential(o.Key), clientOptions);
+            client = new OpenAIClient(new ApiKeyCredential(o.Key), clientOptions);
         }
 
-        return azure.GetChatClient(model).AsIChatClient();
+        return client.GetChatClient(model).AsIChatClient();
     }
 }
 
@@ -96,6 +99,38 @@ sealed class FallbackChatClient(IChatClient primary, IChatClient fallback) : Del
         catch (ClientResultException ex) when (ex.Status == 429)
         {
             return await fallback.GetResponseAsync(messages, options, cancellationToken);
+        }
+    }
+
+    // En streaming, le 429 arrive au premier élément : la bascule se fait avant d'avoir rien affiché.
+    public override async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+        IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var updates = base.GetStreamingResponseAsync(messages, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
+        bool more;
+        try
+        {
+            more = await updates.MoveNextAsync();
+        }
+        catch (ClientResultException ex) when (ex.Status == 429)
+        {
+            await updates.DisposeAsync();
+            updates = fallback.GetStreamingResponseAsync(messages, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
+            more = await updates.MoveNextAsync();
+        }
+
+        try
+        {
+            while (more)
+            {
+                yield return updates.Current;
+                more = await updates.MoveNextAsync();
+            }
+        }
+        finally
+        {
+            await updates.DisposeAsync();
         }
     }
 }
